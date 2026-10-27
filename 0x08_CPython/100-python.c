@@ -73,6 +73,9 @@ static Py_ssize_t _PyLongBaseToBase10(Py_ssize_t size,
 	{
 		hi = arr_in[i];
 		for (j = 0; j < new_size; j++)
+		{
+			z = ((twodigits)arr_out[j] << PyLong_SHIFT) | hi;
+			hi = (digit)(z / DECIMAL_BASE);
 			arr_out[j] = (digit)(z - (twodigits)hi * DECIMAL_BASE);
 		}
 		while (hi)
