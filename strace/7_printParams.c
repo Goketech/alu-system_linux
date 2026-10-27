@@ -73,6 +73,8 @@ void printParam(pid_t child_pid, struct user_regs_struct *regs,
 	syscall_t syscall = syscalls_64[regs->orig_rax];
 
 	if (!regs)
+		return;
+	if (isPtrParam(syscall.params[i]) && param == 0)
 		printf("NULL");
 	else if (!printInt(syscall.table_n, syscall.params[i], i, param))
 	{
