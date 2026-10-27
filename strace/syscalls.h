@@ -1,197 +1,1131 @@
 #ifndef _SYSCALLS_H_
 #define _SYSCALLS_H_
 
-/* size_t */
+#include <sys/ptrace.h>
+#include <sys/types.h>
+#include <sys/user.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <stdio.h>
 
-/*
- * Normally, MAX_PARAMS is always 6 per the x86-64 ABI:
- * https://linux-kernel-labs.github.io/refs/heads/master/lectures/syscalls.html
- */
+
+/* Normally, MAX_PARAMS is always 6 */
 #define MAX_PARAMS	6
 
+#define IS_UINT(x) (x == UINT32_T || x == UNSIGNED_INT || x == GID_T ||\
+	x == ID_T || x == MODE_T || x == SIZE_T || x == SOCKLEN_T || x == U64 ||\
+	x == UID_T || x == UNSIGNED_LONG)
+#define IS_LONG(x) (x == LONG || x == PID_T || x == SSIZE_T || x == CLOCK_T ||\
+	x == TIME_T)
+
+#define IS_INT(x) (x == CLOCKID_T || x == KEY_T || x == MQD_T ||\
+	x == IDTYPE_T || x == INT || x == KEY_SERIAL_T ||\
+	x == ENUM___PTRACE_REQUEST || x == PID_T)
+
+#define IS_POINTER(x) (x == AIO_CONTEXT_T_P || x == CHAR_P ||\
+	x == CPU_SET_T_P || x == FD_SET_P || x == GID_T_P || x == INT_P ||\
+	x == LOFF_T_P || x == LONG_P || x == OFF_T_P || x == SIGINFO_T_P ||\
+	x == SIGSET_T_P || x == SIZE_T_P || x == SOCKLEN_T_P || x == STACK_T_P ||\
+	x == STRUCT_EPOLL_EVENT_P || x == STRUCT_GETCPU_CACHE_P ||\
+	x == STRUCT_IOCB_P || x == STRUCT_IOVEC_P || x == STRUCT_IO_EVENT_P ||\
+	x == STRUCT_ITIMERSPEC_P || x == STRUCT_ITIMERVAL_P ||\
+	x == STRUCT_KERNEL_SYM_P || x == STRUCT_KEXEC_SEGMENT_P ||\
+	x == STRUCT_LINUX_DIRENT_P || x == STRUCT_MMSGHDR_P ||\
+	x == STRUCT_MQ_ATTR_P || x == STRUCT_MSGHDR_P || x == STRUCT_MSQID_DS_P ||\
+	x == STRUCT_NFSCTL_ARG_P || x == STRUCT_OLD_LINUX_DIRENT_P ||\
+	x == STRUCT_PERF_EVENT_ATTR_P || x == STRUCT_POLLFD_P ||\
+	x == STRUCT_RLIMIT_P || x == STRUCT_ROBUST_LIST_HEAD_P ||\
+	x == STRUCT_RUSAGE_P || x == STRUCT_SCHED_PARAM_P ||\
+	x == STRUCT_SEMBUF_P || x == STRUCT_SHMID_DS_P ||\
+	x == STRUCT_SIGACTION_P || x == STRUCT_SIGEVENT_P ||\
+	x == STRUCT_SOCKADDR_P || x == STRUCT_STATFS_P || x == STRUCT_STAT_P ||\
+	x == STRUCT_SYSINFO_P || x == STRUCT_TIMESPEC_P || x == STRUCT_TIMEVAL_P ||\
+	x == STRUCT_TIMEX_P || x == STRUCT_TIMEZONE_P || x == STRUCT_TMS_P ||\
+	x == STRUCT_USER_DESC_P || x == STRUCT_USTAT_P || x == STRUCT_UTIMBUF_P ||\
+	x == STRUCT_UTSNAME_P || x == STRUCT_VM86_STRUCT_P ||\
+	x == STRUCT___SYSCTL_ARGS_P || x == TIMER_T_P || x == TIME_T_P ||\
+	x == UID_T_P || x == UNION_NFSCTL_RES_P || x == UNSIGNED_CHAR_P ||\
+	x == UNSIGNED_LONG_P || x == UNSIGNED_P || x == VOID_P)
+
 /**
- * enum type_e - enumerates the data types that appear in syscall parameters
- * and returns
+ * struct flag_s - struct that associates a flag macro with its name and value
+ * @name: name of flag as a string
+ * @value: value of flag
+ **/
+typedef struct flag_s
+{
+	const char *name;
+	int value;
+} flag_t;
+
+/**
+ * enum type_e - Enumerates the different types present in the different
+ *               syscall parameters and return types
+ * @AIO_CONTEXT_T: AIO_CONTEXT_T
+ * @AIO_CONTEXT_T_P: AIO_CONTEXT_T_P
+ * @CADDR_T: CADDR_T
+ * @CAP_USER_DATA_T: CAP_USER_DATA_T
+ * @CAP_USER_HEADER_T: CAP_USER_HEADER_T
+ * @CHAR_P: CHAR_P
+ * @CLOCKID_T: CLOCKID_T
+ * @CLOCK_T: CLOCK_T
+ * @CPU_SET_T_P: CPU_SET_T_P
+ * @DEV_T: DEV_T
+ * @ENUM___PTRACE_REQUEST: ENUM___PTRACE_REQUEST
+ * @FD_SET_P: FD_SET_P
+ * @GID_T: GID_T
+ * @GID_T_P: GID_T_P
+ * @IDTYPE_T: IDTYPE_T
+ * @ID_T: ID_T
+ * @INT: INT
+ * @INT_P: INT_P
+ * @KEY_SERIAL_T: KEY_SERIAL_T
+ * @KEY_T: KEY_T
+ * @LOFF_T_P: LOFF_T_P
+ * @LONG: LONG
+ * @LONG_P: LONG_P
+ * @MODE_T: MODE_T
+ * @MQD_T: MQD_T
+ * @NFDS_T: NFDS_T
+ * @OFF64_T: OFF64_T
+ * @OFF_T: OFF_T
+ * @OFF_T_P: OFF_T_P
+ * @PID_T: PID_T
+ * @SIGHANDLER_T: SIGHANDLER_T
+ * @SIGINFO_T_P: SIGINFO_T_P
+ * @SIGSET_T_P: SIGSET_T_P
+ * @SIZE_T: SIZE_T
+ * @SIZE_T_P: SIZE_T_P
+ * @SOCKLEN_T: SOCKLEN_T
+ * @SOCKLEN_T_P: SOCKLEN_T_P
+ * @SSIZE_T: SSIZE_T
+ * @STACK_T_P: STACK_T_P
+ * @STRUCT_EPOLL_EVENT_P: STRUCT_EPOLL_EVENT_P
+ * @STRUCT_GETCPU_CACHE_P: STRUCT_GETCPU_CACHE_P
+ * @STRUCT_IOCB_P: STRUCT_IOCB_P
+ * @STRUCT_IOCB_PP: STRUCT_IOCB_PP
+ * @STRUCT_IOVEC_P: STRUCT_IOVEC_P
+ * @STRUCT_IO_EVENT_P: STRUCT_IO_EVENT_P
+ * @STRUCT_ITIMERSPEC_P: STRUCT_ITIMERSPEC_P
+ * @STRUCT_ITIMERVAL_P: STRUCT_ITIMERVAL_P
+ * @STRUCT_KERNEL_SYM_P: STRUCT_KERNEL_SYM_P
+ * @STRUCT_KEXEC_SEGMENT_P: STRUCT_KEXEC_SEGMENT_P
+ * @STRUCT_LINUX_DIRENT_P: STRUCT_LINUX_DIRENT_P
+ * @STRUCT_MMSGHDR_P: STRUCT_MMSGHDR_P
+ * @STRUCT_MQ_ATTR_P: STRUCT_MQ_ATTR_P
+ * @STRUCT_MSGHDR_P: STRUCT_MSGHDR_P
+ * @STRUCT_MSQID_DS_P: STRUCT_MSQID_DS_P
+ * @STRUCT_NFSCTL_ARG_P: STRUCT_NFSCTL_ARG_P
+ * @STRUCT_OLD_LINUX_DIRENT_P: STRUCT_OLD_LINUX_DIRENT_P
+ * @STRUCT_PERF_EVENT_ATTR_P: STRUCT_PERF_EVENT_ATTR_P
+ * @STRUCT_POLLFD_P: STRUCT_POLLFD_P
+ * @STRUCT_RLIMIT_P: STRUCT_RLIMIT_P
+ * @STRUCT_ROBUST_LIST_HEAD_P: STRUCT_ROBUST_LIST_HEAD_P
+ * @STRUCT_ROBUST_LIST_HEAD_PP: STRUCT_ROBUST_LIST_HEAD_PP
+ * @STRUCT_RUSAGE_P: STRUCT_RUSAGE_P
+ * @STRUCT_SCHED_PARAM_P: STRUCT_SCHED_PARAM_P
+ * @STRUCT_SEMBUF_P: STRUCT_SEMBUF_P
+ * @STRUCT_SHMID_DS_P: STRUCT_SHMID_DS_P
+ * @STRUCT_SIGACTION_P: STRUCT_SIGACTION_P
+ * @STRUCT_SIGEVENT_P: STRUCT_SIGEVENT_P
+ * @STRUCT_SOCKADDR_P: STRUCT_SOCKADDR_P
+ * @STRUCT_STATFS_P: STRUCT_STATFS_P
+ * @STRUCT_STAT_P: STRUCT_STAT_P
+ * @STRUCT_SYSINFO_P: STRUCT_SYSINFO_P
+ * @STRUCT_TIMESPEC: STRUCT_TIMESPEC
+ * @STRUCT_TIMESPEC_P: STRUCT_TIMESPEC_P
+ * @STRUCT_TIMEVAL: STRUCT_TIMEVAL
+ * @STRUCT_TIMEVAL_P: STRUCT_TIMEVAL_P
+ * @STRUCT_TIMEX_P: STRUCT_TIMEX_P
+ * @STRUCT_TIMEZONE_P: STRUCT_TIMEZONE_P
+ * @STRUCT_TMS_P: STRUCT_TMS_P
+ * @STRUCT_USER_DESC_P: STRUCT_USER_DESC_P
+ * @STRUCT_USTAT_P: STRUCT_USTAT_P
+ * @STRUCT_UTIMBUF_P: STRUCT_UTIMBUF_P
+ * @STRUCT_UTSNAME_P: STRUCT_UTSNAME_P
+ * @STRUCT_VM86_STRUCT_P: STRUCT_VM86_STRUCT_P
+ * @STRUCT___SYSCTL_ARGS_P: STRUCT___SYSCTL_ARGS_P
+ * @TIMER_T: TIMER_T
+ * @TIMER_T_P: TIMER_T_P
+ * @TIME_T: TIME_T
+ * @TIME_T_P: TIME_T_P
+ * @U64: U64
+ * @UID_T: UID_T
+ * @UID_T_P: UID_T_P
+ * @UINT32_T: UINT32_T
+ * @UNION_NFSCTL_RES_P: UNION_NFSCTL_RES_P
+ * @UNSIGNED: UNSIGNED
+ * @UNSIGNED_CHAR_P: UNSIGNED_CHAR_P
+ * @UNSIGNED_INT: UNSIGNED_INT
+ * @UNSIGNED_LONG: UNSIGNED_LONG
+ * @UNSIGNED_LONG_P: UNSIGNED_LONG_P
+ * @UNSIGNED_P: UNSIGNED_P
+ * @VARARGS: VARARGS
+ * @VOID: VOID
+ * @VOID_P: VOID_P
+ * @VOID_PP: VOID_PP
+ */
+typedef enum type_e
+{
+	AIO_CONTEXT_T,
+	AIO_CONTEXT_T_P,
+	CADDR_T,
+	CAP_USER_DATA_T,
+	CAP_USER_HEADER_T,
+	CHAR_P,
+	CHAR_PP,
+	CLOCKID_T,
+	CLOCK_T,
+	CPU_SET_T_P,
+	DEV_T,
+	ENUM___PTRACE_REQUEST,
+	FD_SET_P,
+	GID_T,
+	GID_T_P,
+	IDTYPE_T,
+	ID_T,
+	INT,
+	INT_P,
+	KEY_SERIAL_T,
+	KEY_T,
+	LOFF_T_P,
+	LONG,
+	LONG_P,
+	MODE_T,
+	MQD_T,
+	NFDS_T,
+	OFF64_T,
+	OFF_T,
+	OFF_T_P,
+	PID_T,
+	SIGHANDLER_T,
+	SIGINFO_T_P,
+	SIGSET_T_P,
+	SIZE_T,
+	SIZE_T_P,
+	SOCKLEN_T,
+	SOCKLEN_T_P,
+	SSIZE_T,
+	STACK_T_P,
+	STRUCT_EPOLL_EVENT_P,
+	STRUCT_GETCPU_CACHE_P,
+	STRUCT_IOCB_P,
+	STRUCT_IOCB_PP,
+	STRUCT_IOVEC_P,
+	STRUCT_IO_EVENT_P,
+	STRUCT_ITIMERSPEC_P,
+	STRUCT_ITIMERVAL_P,
+	STRUCT_KERNEL_SYM_P,
+	STRUCT_KEXEC_SEGMENT_P,
+	STRUCT_LINUX_DIRENT_P,
+	STRUCT_MMSGHDR_P,
+	STRUCT_MQ_ATTR_P,
+	STRUCT_MSGHDR_P,
+	STRUCT_MSQID_DS_P,
+	STRUCT_NFSCTL_ARG_P,
+	STRUCT_OLD_LINUX_DIRENT_P,
+	STRUCT_PERF_EVENT_ATTR_P,
+	STRUCT_POLLFD_P,
+	STRUCT_RLIMIT_P,
+	STRUCT_ROBUST_LIST_HEAD_P,
+	STRUCT_ROBUST_LIST_HEAD_PP,
+	STRUCT_RUSAGE_P,
+	STRUCT_SCHED_PARAM_P,
+	STRUCT_SEMBUF_P,
+	STRUCT_SHMID_DS_P,
+	STRUCT_SIGACTION_P,
+	STRUCT_SIGEVENT_P,
+	STRUCT_SOCKADDR_P,
+	STRUCT_STATFS_P,
+	STRUCT_STAT_P,
+	STRUCT_SYSINFO_P,
+	STRUCT_TIMESPEC,
+	STRUCT_TIMESPEC_P,
+	STRUCT_TIMEVAL,
+	STRUCT_TIMEVAL_P,
+	STRUCT_TIMEX_P,
+	STRUCT_TIMEZONE_P,
+	STRUCT_TMS_P,
+	STRUCT_USER_DESC_P,
+	STRUCT_USTAT_P,
+	STRUCT_UTIMBUF_P,
+	STRUCT_UTSNAME_P,
+	STRUCT_VM86_STRUCT_P,
+	STRUCT___SYSCTL_ARGS_P,
+	TIMER_T,
+	TIMER_T_P,
+	TIME_T,
+	TIME_T_P,
+	U64,
+	UID_T,
+	UID_T_P,
+	UINT32_T,
+	UNION_NFSCTL_RES_P,
+	UNSIGNED,
+	UNSIGNED_CHAR_P,
+	UNSIGNED_INT,
+	UNSIGNED_INT_P,
+	UNSIGNED_LONG,
+	UNSIGNED_LONG_P,
+	UNSIGNED_P,
+	VARARGS,
+	VOID,
+	VOID_P,
+	VOID_PP
+} type_t;
+
+/**
+ * struct syscall_s - Stores information about a syscall
  *
- * Listed includes are from Ubuntu 14.04. If given a choice in the man page,
- * POSIX.1-2001 include is listed. Some types are defined in multiple headers.
- * Sometimes actual definition will be in a wrapped header like those in bits/,
- * in which case the highest-level wrapper found is named.
- *
- *  type_t                       data type                 include to define
- *
- * @AIO_CONTEXT_T:               aio_context_t             <linux/aio_abi.h>
- * @AIO_CONTEXT_T_P:             aio_context_t *           <linux/aio_abi.h>
- * @CADDR_T:                     caddr_t                   <sys/types.h>
- * @CAP_USER_DATA_T:             cap_user_data_t           <linux/capability.h>
- * @CAP_USER_HEADER_T:           cap_user_header_t         <linux/capability.h>
- * @CHAR_P:                      char *
- * @CHAR_PP:                     char **
- * @CLOCKID_T:                   clockid_t                 <time.h>
- * @CLOCK_T:                     clock_t                   <time.h>
- * @CPU_SET_T_P:                 cpu_set_t *               <sched.h>
- * @DEV_T:                       dev_t                     <sys/types.h> or
- *                                                         <sys/stat.h>
- * @ENUM___PTRACE_REQUEST:       enum __ptrace_request     <sys/ptrace.h>
- * @FD_SET_P:                    fd_set *                  <sys/select.h>
- * @GID_T:                       gid_t                     <sys/types.h> or
- *                                                         <sys/stat.h>
- * @GID_T_P:                     gid_t *                   <sys/types.h> or
- *                                                         <sys/stat.h>
- * @IDTYPE_T:                    idtype_t                  <sys/wait.h>
- * @ID_T:                        id_t                      <sys/types.h> or
- *                                                         <sys/resource.h> or
- *                                                         <sys/wait.h>
- * @INT:                         int
- * @INT_P:                       int *
- * @KEY_SERIAL_T:                key_serial_t
- *      (keyutils.h not found, type used by add_key(2) and request_key(2))
- * @KEY_T:                       key_t                     <sys/types.h> or
- *                                                         <sys/ipc.h>
- * @LOFF_T_P:                    loff_t *                  <sys/types.h>
- * @LONG:                        long
- * @LONG_P:                      long *
- * @MODE_T:                      mode_t                    <sys/types.h> or
- *                                                         <sys/mman.h> or
- *                                                         <sys/stat.h> or
- *                                                         <sys/ipc.h> or
- *                                                         <fcntl.h>
- * @MQD_T:                       mqd_t                     <mqueue.h>
- * @NFDS_T:                      nfds_t                    <sys/poll.h>
- * @OFF64_T:                     off64_t                   <stdio.h> or
- *                                                         <sys/types.h> or
- *                                                         <unistd.h> or
- *                                                         <fcntl.h>
- * @OFF_T:                       off_t                     <stdio.h> or
- *                                                         <sys/types.h> or
- *                                                         <sys/mman.h> or
- *                                                         <sys/stat.h> or
- *                                                         <unistd.h> or
- *                                                         <fcntl.h>
- * @OFF_T_P:                     off_t *                   (see off_t)
- * @PID_T:                       pid_t                     <sched.h> or
- *                                                         <termios.h> or
- *                                                         <utmpx.h> or
-	{266, "clock_getres", INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+ * @name: Name of the syscall
+ * @nr: Syscall number in the syscalls table
+ * @ret: Return type
+ * @nb_params: Number of parameters
+ * @params: Array of parameters types
+ */
+typedef struct syscall_s
+{
+	char const * const name;
+	size_t const table_n;
+	type_t const ret_t;
+	size_t const n_params;
+	type_t const params[MAX_PARAMS];
+} syscall_t;
+
+
+
+
+static syscall_t const syscalls_64[] = {
+	{"read", 0, SSIZE_T, 3, {INT, VOID_P, SIZE_T, -1, -1, -1}},
+	{"write", 1, SSIZE_T, 3, {INT, VOID_P, SIZE_T, -1, -1, -1}},
+	{"open", 2, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"close", 3, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"stat", 4, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"fstat", 5, INT, 2, {INT, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"lstat", 6, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"poll", 7, INT, 3, {STRUCT_POLLFD_P, NFDS_T, INT, -1, -1, -1}},
+	{"lseek", 8, OFF_T, 3, {INT, OFF_T, INT, -1, -1, -1}},
+	{"mmap", 9, VOID_P, 6, {VOID_P, SIZE_T, INT, INT, INT, OFF_T}},
+	{"mprotect", 10, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"munmap", 11, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"brk", 12, INT, 1, {VOID_P, -1, -1, -1, -1, -1}},
+	{"rt_sigaction", 13, INT, 3, {INT, STRUCT_SIGACTION_P,
+		STRUCT_SIGACTION_P, -1, -1, -1}},
+	{"rt_sigprocmask", 14, INT, 3, {INT, SIGSET_T_P, SIGSET_T_P, -1, -1,
+		-1}},
+	{"rt_sigreturn", 15, INT, 1, {UNSIGNED_LONG, -1, -1, -1, -1, -1}},
+	{"ioctl", 16, INT, 3, {INT, INT, VARARGS, -1, -1, -1}},
+	{"pread64", 17, SSIZE_T, 4, {INT, VOID_P, SIZE_T, OFF_T, -1, -1}},
+	{"pwrite64", 18, SSIZE_T, 4, {INT, VOID_P, SIZE_T, OFF_T, -1, -1}},
+	{"readv", 19, SSIZE_T, 3, {INT, STRUCT_IOVEC_P, INT, -1, -1, -1}},
+	{"writev", 20, SSIZE_T, 3, {INT, STRUCT_IOVEC_P, INT, -1, -1, -1}},
+	{"access", 21, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"pipe", 22, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"select", 23, INT, 5, {INT, FD_SET_P, FD_SET_P, FD_SET_P,
+		STRUCT_TIMEVAL_P, -1}},
+	{"sched_yield", 24, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"mremap", 25, VOID_P, 5, {VOID_P, SIZE_T, SIZE_T, INT, VARARGS, -1}},
+	{"msync", 26, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"mincore", 27, INT, 3, {VOID_P, SIZE_T, UNSIGNED_CHAR_P, -1, -1, -1}},
+	{"madvise", 28, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"shmget", 29, INT, 3, {KEY_T, SIZE_T, INT, -1, -1, -1}},
+	{"shmat", 30, VOID_P, 3, {INT, VOID_P, INT, -1, -1, -1}},
+	{"shmctl", 31, INT, 3, {INT, INT, STRUCT_SHMID_DS_P, -1, -1, -1}},
+	{"dup", 32, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"dup2", 33, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"pause", 34, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"nanosleep", 35, INT, 2, {STRUCT_TIMESPEC_P, STRUCT_TIMESPEC_P, -1,
+		-1, -1, -1}},
+	{"getitimer", 36, INT, 2, {INT, STRUCT_ITIMERVAL_P, -1, -1, -1, -1}},
+	{"alarm", 37, UNSIGNED_INT, 1, {UNSIGNED_INT, -1, -1, -1, -1, -1}},
+	{"setitimer", 38, INT, 3, {INT, STRUCT_ITIMERVAL_P, STRUCT_ITIMERVAL_P,
+		-1, -1, -1}},
+	{"getpid", 39, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"sendfile", 40, SSIZE_T, 4, {INT, INT, OFF_T_P, SIZE_T, -1, -1}},
+	{"socket", 41, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"connect", 42, INT, 3, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T, -1, -1,
+		-1}},
+	{"accept", 43, INT, 3, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T_P, -1, -1,
+		-1}},
+	{"sendto", 44, SSIZE_T, 6, {INT, VOID_P, SIZE_T, INT,
+		STRUCT_SOCKADDR_P, SOCKLEN_T}},
+	{"recvfrom", 45, SSIZE_T, 6, {INT, VOID_P, SIZE_T, INT,
+		STRUCT_SOCKADDR_P, SOCKLEN_T_P}},
+	{"sendmsg", 46, SSIZE_T, 3, {INT, STRUCT_MSGHDR_P, INT, -1, -1, -1}},
+	{"recvmsg", 47, SSIZE_T, 3, {INT, STRUCT_MSGHDR_P, INT, -1, -1, -1}},
+	{"shutdown", 48, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"bind", 49, INT, 3, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T, -1, -1, -1}},
+	{"listen", 50, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"getsockname", 51, INT, 3, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T_P, -1,
 		-1, -1}},
-	{267, "clock_nanosleep", INT, 4, {CLOCKID_T, INT, STRUCT_TIMESPEC_P,
-		STRUCT_TIMESPEC_P, -1, -1}},
-	{268, "statfs64", INT, 2, {CHAR_P, STRUCT_STATFS_P, -1, -1, -1, -1}},
-	{269, "fstatfs64", INT, 2, {INT, STRUCT_STATFS_P, -1, -1, -1, -1}},
-	{270, "tgkill", INT, 3, {INT, INT, INT, -1, -1, -1}},
-	{271, "utimes", INT, 2, {CHAR_P, STRUCT_TIMEVAL_P, -1, -1, -1, -1}},
-	{272, "fadvise64_64", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{273, "vserver", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{274, "mbind", INT, 6, {VOID_P, UNSIGNED_LONG, INT, UNSIGNED_LONG_P,
-		UNSIGNED_LONG, UNSIGNED_INT}},
-	{275, "get_mempolicy", INT, 5, {INT_P, UNSIGNED_LONG_P, UNSIGNED_LONG,
+	{"getpeername", 52, INT, 3, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T_P, -1,
+		-1, -1}},
+	{"socketpair", 53, INT, 4, {INT, INT, INT, INT, -1, -1}},
+	{"setsockopt", 54, INT, 5, {INT, INT, INT, VOID_P, SOCKLEN_T, -1}},
+	{"getsockopt", 55, INT, 5, {INT, INT, INT, VOID_P, SOCKLEN_T_P, -1}},
+	{"clone", 56, INT, 5, {INT, VOID_P, INT, VOID_P, VARARGS, -1}},
+	{"fork", 57, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"vfork", 58, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"execve", 59, INT, 3, {CHAR_P, CHAR_P, CHAR_P, -1, -1, -1}},
+	{"exit", 60, VOID, 1, {INT, -1, -1, -1, -1, -1}},
+	{"wait4", 61, PID_T, 4, {PID_T, INT_P, INT, STRUCT_RUSAGE_P, -1, -1}},
+	{"kill", 62, INT, 2, {PID_T, INT, -1, -1, -1, -1}},
+	{"uname", 63, INT, 1, {STRUCT_UTSNAME_P, -1, -1, -1, -1, -1}},
+	{"semget", 64, INT, 3, {KEY_T, INT, INT, -1, -1, -1}},
+	{"semop", 65, INT, 3, {INT, STRUCT_SEMBUF_P, UNSIGNED, -1, -1,
+		-1}},
+	{"semctl", 66, INT, 4, {INT, INT, INT, VARARGS, -1, -1}},
+	{"shmdt", 67, INT, 1, {VOID_P, -1, -1, -1, -1, -1}},
+	{"msgget", 68, INT, 2, {KEY_T, INT, -1, -1, -1, -1}},
+	{"msgsnd", 69, INT, 4, {INT, VOID_P, SIZE_T, INT, -1, -1}},
+	{"msgrcv", 70, SSIZE_T, 5, {INT, VOID_P, SIZE_T, LONG, INT, -1}},
+	{"msgctl", 71, INT, 3, {INT, INT, STRUCT_MSQID_DS_P, -1, -1, -1}},
+	{"fcntl", 72, INT, 3, {INT, INT, VARARGS, -1, -1, -1}},
+	{"flock", 73, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"fsync", 74, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"fdatasync", 75, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"truncate", 76, INT, 2, {CHAR_P, OFF_T, -1, -1, -1, -1}},
+	{"ftruncate", 77, INT, 2, {INT, OFF_T, -1, -1, -1, -1}},
+	{"getdents", 78, INT, 3, {UNSIGNED_INT, STRUCT_LINUX_DIRENT_P,
+		UNSIGNED_INT, -1, -1, -1}},
+	{"getcwd", 79, CHAR_P, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"chdir", 80, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"fchdir", 81, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"rename", 82, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"mkdir", 83, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"rmdir", 84, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"creat", 85, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"link", 86, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"unlink", 87, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"symlink", 88, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"readlink", 89, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"chmod", 90, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"fchmod", 91, INT, 2, {INT, MODE_T, -1, -1, -1, -1}},
+	{"chown", 92, INT, 3, {CHAR_P, UID_T, GID_T, -1, -1, -1}},
+	{"fchown", 93, INT, 3, {INT, UID_T, GID_T, -1, -1, -1}},
+	{"lchown", 94, INT, 3, {CHAR_P, UID_T, GID_T, -1, -1, -1}},
+	{"umask", 95, MODE_T, 1, {MODE_T, -1, -1, -1, -1, -1}},
+	{"gettimeofday", 96, INT, 2, {STRUCT_TIMEVAL_P, STRUCT_TIMEZONE_P, -1,
+		-1, -1, -1}},
+	{"getrlimit", 97, INT, 2, {INT, STRUCT_RLIMIT_P, -1, -1, -1, -1}},
+	{"getrusage", 98, INT, 2, {INT, STRUCT_RUSAGE_P, -1, -1, -1, -1}},
+	{"sysinfo", 99, INT, 1, {STRUCT_SYSINFO_P, -1, -1, -1, -1, -1}},
+	{"times", 100, CLOCK_T, 1, {STRUCT_TMS_P, -1, -1, -1, -1, -1}},
+	{"ptrace", 101, LONG, 4, {ENUM___PTRACE_REQUEST, PID_T, VOID_P,
+		VOID_P, -1, -1}},
+	{"getuid", 102, UID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"syslog", 103, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"getgid", 104, GID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"setuid", 105, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"setgid", 106, INT, 1, {GID_T, -1, -1, -1, -1, -1}},
+	{"geteuid", 107, UID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"getegid", 108, GID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"setpgid", 109, INT, 2, {PID_T, PID_T, -1, -1, -1, -1}},
+	{"getppid", 110, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"getpgrp", 111, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"setsid", 112, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"setreuid", 113, INT, 2, {UID_T, UID_T, -1, -1, -1, -1}},
+	{"setregid", 114, INT, 2, {GID_T, GID_T, -1, -1, -1, -1}},
+	{"getgroups", 115, INT, 2, {INT, GID_T, -1, -1, -1, -1}},
+	{"setgroups", 116, INT, 2, {SIZE_T, GID_T_P, -1, -1, -1, -1}},
+	{"setresuid", 117, INT, 3, {UID_T, UID_T, UID_T, -1, -1, -1}},
+	{"getresuid", 118, INT, 3, {UID_T_P, UID_T_P, UID_T_P, -1, -1, -1}},
+	{"setresgid", 119, INT, 3, {GID_T, GID_T, GID_T, -1, -1, -1}},
+	{"getresgid", 120, INT, 3, {GID_T_P, GID_T_P, GID_T_P, -1, -1, -1}},
+	{"getpgid", 121, PID_T, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"setfsuid", 122, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"setfsgid", 123, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"getsid", 124, PID_T, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"capget", 125, INT, 2, {CAP_USER_HEADER_T, CAP_USER_DATA_T, -1, -1,
+		-1, -1}},
+	{"capset", 126, INT, 2, {CAP_USER_HEADER_T, CAP_USER_DATA_T, -1, -1,
+		-1, -1}},
+	{"rt_sigpending", 127, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"rt_sigtimedwait", 128, INT, 3, {SIGSET_T_P, SIGINFO_T_P,
+		STRUCT_TIMESPEC_P, -1, -1, -1}},
+	{"rt_sigqueueinfo", 129, INT, 3, {PID_T, INT, SIGINFO_T_P, -1, -1, -1}},
+	{"rt_sigsuspend", 130, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"sigaltstack", 131, INT, 2, {STACK_T_P, STACK_T_P, -1, -1, -1, -1}},
+	{"utime", 132, INT, 2, {CHAR_P, STRUCT_UTIMBUF_P, -1, -1, -1, -1}},
+	{"mknod", 133, INT, 3, {CHAR_P, MODE_T, DEV_T, -1, -1, -1}},
+	{"uselib", 134, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"personality", 135, INT, 1, {UNSIGNED_LONG, -1, -1, -1, -1, -1}},
+	{"ustat", 136, INT, 2, {DEV_T, STRUCT_USTAT_P, -1, -1, -1, -1}},
+	{"statfs", 137, INT, 2, {CHAR_P, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"fstatfs", 138, INT, 2, {INT, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"sysfs", 139, INT, 2, {INT, CHAR_P, -1, -1, -1, -1}},
+	{"getpriority", 140, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"setpriority", 141, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"sched_setparam", 142, INT, 2, {PID_T, STRUCT_SCHED_PARAM_P, -1, -1,
+		-1, -1}},
+	{"sched_getparam", 143, INT, 2, {PID_T, STRUCT_SCHED_PARAM_P, -1, -1,
+		-1, -1}},
+	{"sched_setscheduler", 144, INT, 3, {PID_T, INT, STRUCT_SCHED_PARAM_P,
+		-1, -1, -1}},
+	{"sched_getscheduler", 145, INT, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"sched_get_priority_max", 146, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sched_get_priority_min", 147, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sched_rr_get_interval", 148, INT, 2, {PID_T, STRUCT_TIMESPEC_P, -1,
+		-1, -1, -1}},
+	{"mlock", 149, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"munlock", 150, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"mlockall", 151, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"munlockall", 152, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"vhangup", 153, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"modify_ldt", 154, INT, 3, {INT, VOID_P, UNSIGNED_LONG, -1, -1, -1}},
+	{"pivot_root", 155, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"_sysctl", 156, INT, 1, {STRUCT___SYSCTL_ARGS_P, -1, -1, -1, -1, -1}},
+	{"prctl", 157, INT, 5, {INT, UNSIGNED_LONG, UNSIGNED_LONG,
 		UNSIGNED_LONG, UNSIGNED_LONG, -1}},
-	{276, "set_mempolicy", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{277, "mq_open", MQD_T, 2, {CHAR_P, INT, -1, -1, -1, -1}},
-	{278, "mq_unlink", INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
-	{279, "mq_timedsend", INT, 5, {MQD_T, CHAR_P, SIZE_T,
-		UNSIGNED_INT, STRUCT_TIMESPEC_P, -1}},
-	{280, "mq_timedreceive", SSIZE_T, 5, {MQD_T, CHAR_P, SIZE_T,
-		UNSIGNED_INT_P, STRUCT_TIMESPEC_P, -1}},
-	{281, "mq_notify", INT, 2, {MQD_T, STRUCT_SIGEVENT_P, -1, -1, -1, -1}},
-	{282, "mq_getsetattr", INT, 3, {MQD_T, STRUCT_MQ_ATTR_P,
-		STRUCT_MQ_ATTR_P, -1, -1, -1}},
-	{283, "kexec_load", LONG, 4, {UNSIGNED_LONG, UNSIGNED_LONG,
-		STRUCT_KEXEC_SEGMENT_P, UNSIGNED_LONG, -1, -1}},
-	{284, "waitid", INT, 4, {IDTYPE_T, ID_T, SIGINFO_T_P, INT, -1, -1}},
-	{286, "add_key", KEY_SERIAL_T, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T,
-		KEY_SERIAL_T, -1}},
-	{287, "request_key", KEY_SERIAL_T, 4, {CHAR_P, CHAR_P, CHAR_P,
-		KEY_SERIAL_T, -1, -1}},
-	{288, "keyctl", LONG, 2, {INT, VARARGS, -1, -1, -1, -1}},
-	{289, "ioprio_set", INT, 3, {INT, INT, INT, -1, -1, -1}},
-	{290, "ioprio_get", INT, 2, {INT, INT, -1, -1, -1, -1}},
-	{291, "inotify_init", INT, 1, {VOID, -1, -1, -1, -1, -1}},
-	{292, "inotify_add_watch", INT, 3, {INT, CHAR_P, UINT32_T, -1, -1, -1}},
-	{293, "inotify_rm_watch", INT, 2, {INT, INT, -1, -1, -1, -1}},
-	{294, "migrate_pages", LONG, 4, {INT, UNSIGNED_LONG, UNSIGNED_LONG_P,
-		UNSIGNED_LONG_P, -1, -1}},
-	{295, "openat", INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
-	{296, "mkdirat", INT, 3, {INT, CHAR_P, MODE_T, -1, -1, -1}},
-	{297, "mknodat", INT, 4, {INT, CHAR_P, MODE_T, DEV_T, -1, -1}},
-	{298, "fchownat", INT, 5, {INT, CHAR_P, UID_T, GID_T, INT, -1}},
-	{299, "futimesat", INT, 3, {INT, CHAR_P, STRUCT_TIMEVAL_P, -1, -1, -1}},
-	{300, "fstatat64", INT, 4, {INT, CHAR_P, STRUCT_STAT_P, INT, -1, -1}},
-	{301, "unlinkat", INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
-	{302, "renameat", INT, 4, {INT, CHAR_P, INT, CHAR_P, -1, -1}},
-	{303, "linkat", INT, 5, {INT, CHAR_P, INT, CHAR_P, INT, -1}},
-	{304, "symlinkat", INT, 3, {CHAR_P, INT, CHAR_P, -1, -1, -1}},
-	{305, "readlinkat", INT, 4, {INT, CHAR_P, CHAR_P, SIZE_T, -1, -1}},
-	{306, "fchmodat", INT, 4, {INT, CHAR_P, MODE_T, INT, -1, -1}},
-	{307, "faccessat", INT, 4, {INT, CHAR_P, INT, INT, -1, -1}},
-	{308, "pselect6", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{309, "ppoll", INT, 4, {STRUCT_POLLFD_P, NFDS_T, STRUCT_TIMESPEC_P,
-		SIGSET_T_P, -1, -1}},
-	{310, "unshare", INT, 1, {INT, -1, -1, -1, -1, -1}},
-	{311, "set_robust_list", LONG, 2, {STRUCT_ROBUST_LIST_HEAD_P, SIZE_T,
+	{"arch_prctl", 158, INT, 2, {INT, UNSIGNED_LONG, -1, -1, -1, -1}},
+	{"adjtimex", 159, INT, 1, {STRUCT_TIMEX_P, -1, -1, -1, -1, -1}},
+	{"setrlimit", 160, INT, 2, {INT, STRUCT_RLIMIT_P, -1, -1, -1, -1}},
+	{"chroot", 161, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"sync", 162, VOID, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"acct", 163, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"settimeofday", 164, INT, 2, {STRUCT_TIMEVAL_P, STRUCT_TIMEZONE_P,
 		-1, -1, -1, -1}},
-	{312, "get_robust_list", LONG, 3, {INT, STRUCT_ROBUST_LIST_HEAD_PP,
-		SIZE_T_P, -1, -1, -1}},
-	{313, "splice", SSIZE_T, 6, {INT, LOFF_T_P, INT, LOFF_T_P, SIZE_T,
-		UNSIGNED_INT}},
-	{314, "sync_file_range", INT, 4, {INT, OFF64_T, OFF64_T, UNSIGNED_INT,
+	{"mount", 165, INT, 5, {CHAR_P, CHAR_P, CHAR_P, UNSIGNED_LONG, VOID_P,
+		-1}},
+	{"umount2", 166, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"swapon", 167, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"swapoff", 168, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"reboot", 169, INT, 4, {INT, INT, INT, VOID_P, -1, -1}},
+	{"sethostname", 170, INT, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"setdomainname", 171, INT, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"iopl", 172, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"ioperm", 173, INT, 3, {UNSIGNED_LONG, UNSIGNED_LONG, INT, -1, -1,
+		-1}},
+	{"create_module", 174, CADDR_T, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"init_module", 175, INT, 3, {VOID_P, UNSIGNED_LONG, CHAR_P, -1, -1,
+		-1}},
+	{"delete_module", 176, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"get_kernel_syms", 177, INT, 1, {STRUCT_KERNEL_SYM_P, -1, -1, -1, -1,
+		-1}},
+	{"query_module", 178, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"quotactl", 179, INT, 4, {INT, CHAR_P, INT, CADDR_T, -1, -1}},
+	{"nfsservctl", 180, LONG, 3, {INT, STRUCT_NFSCTL_ARG_P,
+		UNION_NFSCTL_RES_P, -1, -1, -1}},
+	{"getpmsg", 181, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"putpmsg", 182, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"afs_syscall", 183, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"tuxcall", 184, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"security", 185, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"gettid", 186, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"readahead", 187, SSIZE_T, 3, {INT, OFF64_T, SIZE_T, -1, -1, -1}},
+	{"setxattr", 188, INT, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"lsetxattr", 189, INT, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"fsetxattr", 190, INT, 5, {INT, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"getxattr", 191, SSIZE_T, 4, {CHAR_P, CHAR_P, VOID_P, SIZE_T, -1, -1}},
+	{"lgetxattr", 192, SSIZE_T, 4, {CHAR_P, CHAR_P, VOID_P, SIZE_T, -1,
+		-1}},
+	{"fgetxattr", 193, SSIZE_T, 4, {INT, CHAR_P, VOID_P, SIZE_T, -1, -1}},
+	{"listxattr", 194, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"llistxattr", 195, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"flistxattr", 196, SSIZE_T, 3, {INT, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"removexattr", 197, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"lremovexattr", 198, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"fremovexattr", 199, INT, 2, {INT, CHAR_P, -1, -1, -1, -1}},
+	{"tkill", 200, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"time", 201, TIME_T, 1, {TIME_T_P, -1, -1, -1, -1, -1}},
+	{"futex", 202, INT, 6, {INT_P, INT, INT, STRUCT_TIMESPEC_P, INT_P,
+		INT}},
+	{"sched_setaffinity", 203, INT, 3, {PID_T, SIZE_T, CPU_SET_T_P, -1,
 		-1, -1}},
-	{315, "tee", SSIZE_T, 4, {INT, INT, SIZE_T, UNSIGNED_INT, -1, -1}},
-	{316, "vmsplice", SSIZE_T, 4, {INT, STRUCT_IOVEC_P, UNSIGNED_LONG,
-		UNSIGNED_INT, -1, -1}},
-	{317, "move_pages", LONG, 6, {INT, UNSIGNED_LONG, VOID_PP, INT_P,
-		INT_P, INT}},
-	{318, "getcpu", INT, 3, {UNSIGNED_INT_P, UNSIGNED_INT_P,
-		STRUCT_GETCPU_CACHE_P, -1, -1, -1}},
-	{319, "epoll_pwait", INT, 5, {INT, STRUCT_EPOLL_EVENT_P, INT, INT,
-		SIGSET_T_P, -1}},
-	{320, "utimensat", INT, 4, {INT, CHAR_P, STRUCT_TIMESPEC_P, INT,
+	{"sched_getaffinity", 204, INT, 3, {PID_T, SIZE_T, CPU_SET_T_P, -1,
 		-1, -1}},
-	{321, "signalfd", INT, 3, {INT, SIGSET_T_P, INT, -1, -1, -1}},
-	{322, "timerfd_create", INT, 2, {INT, INT, -1, -1, -1, -1}},
-	{323, "eventfd", INT, 2, {UNSIGNED_INT, INT, -1, -1, -1, -1}},
-	{324, "fallocate", INT, 4, {INT, INT, OFF_T, OFF_T, -1, -1}},
-	{325, "timerfd_settime", INT, 4, {INT, INT, STRUCT_ITIMERSPEC_P,
+	{"set_thread_area", 205, INT, 1, {STRUCT_USER_DESC_P, -1, -1, -1, -1,
+		-1}},
+	{"io_setup", 206, INT, 2, {UNSIGNED, AIO_CONTEXT_T_P, -1,
+		-1, -1, -1}},
+	{"io_destroy", 207, INT, 1, {AIO_CONTEXT_T, -1, -1, -1, -1, -1}},
+	{"io_getevents", 208, INT, 5, {AIO_CONTEXT_T, LONG, LONG,
+		STRUCT_IO_EVENT_P, STRUCT_TIMESPEC_P, -1}},
+	{"io_submit", 209, INT, 3, {AIO_CONTEXT_T, LONG, STRUCT_IOCB_PP, -1,
+		-1, -1}},
+	{"io_cancel", 210, INT, 3, {AIO_CONTEXT_T, STRUCT_IOCB_P,
+		STRUCT_IO_EVENT_P, -1, -1, -1}},
+	{"get_thread_area", 211, INT, 1, {STRUCT_USER_DESC_P, -1, -1, -1, -1,
+		-1}},
+	{"lookup_dcookie", 212, INT, 3, {U64, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"epoll_create", 213, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"epoll_ctl_old", 214, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"epoll_wait_old", 215, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"remap_file_pages", 216, INT, 5, {VOID_P, SIZE_T, INT, SSIZE_T, INT,
+		-1}},
+	{"getdents64", 217, INT, 3, {UNSIGNED_INT, STRUCT_LINUX_DIRENT_P,
+		UNSIGNED_INT, -1, -1, -1}},
+	{"set_tid_address", 218, LONG, 1, {INT_P, -1, -1, -1, -1, -1}},
+	{"restart_syscall", 219, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"semtimedop", 220, INT, 4, {INT, STRUCT_SEMBUF_P, UNSIGNED,
+		STRUCT_TIMESPEC_P, -1, -1}},
+	{"fadvise64", 221, INT, 4, {INT, OFF_T, OFF_T, INT, -1, -1}},
+	{"timer_create", 222, INT, 3, {CLOCKID_T, STRUCT_SIGEVENT_P,
+		TIMER_T_P, -1, -1, -1}},
+	{"timer_settime", 223, INT, 4, {TIMER_T, INT, STRUCT_ITIMERSPEC_P,
 		STRUCT_ITIMERSPEC_P, -1, -1}},
-	{326, "timerfd_gettime", INT, 2, {INT, STRUCT_ITIMERSPEC_P, -1, -1, -1,
+	{"timer_gettime", 224, INT, 2, {TIMER_T, STRUCT_ITIMERSPEC_P, -1, -1,
+		-1, -1}},
+	{"timer_getoverrun", 225, INT, 1, {TIMER_T, -1, -1, -1, -1, -1}},
+	{"timer_delete", 226, INT, 1, {TIMER_T, -1, -1, -1, -1, -1}},
+	{"clock_settime", 227, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_gettime", 228, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_getres", 229, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_nanosleep", 230, INT, 4, {CLOCKID_T, INT, STRUCT_TIMESPEC_P,
+		STRUCT_TIMESPEC_P, -1, -1}},
+	{"exit_group", 231, VOID, 1, {INT, -1, -1, -1, -1, -1}},
+	{"epoll_wait", 232, INT, 4, {INT, STRUCT_EPOLL_EVENT_P, INT, INT, -1,
 		-1}},
-	{327, "signalfd4", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{328, "eventfd2", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{329, "epoll_create1", INT, 1, {INT, -1, -1, -1, -1, -1}},
-	{330, "dup3", INT, 3, {INT, INT, INT, -1, -1, -1}},
-	{331, "pipe2", INT, 2, {INT_P, INT, -1, -1, -1, -1}},
-	{332, "inotify_init1", INT, 1, {INT, -1, -1, -1, -1, -1}},
-	{333, "preadv", SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
-	{334, "pwritev", SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
-	{335, "rt_tgsigqueueinfo", INT, 4, {PID_T, PID_T, INT, SIGINFO_T_P, -1,
+	{"epoll_ctl", 233, INT, 4, {INT, INT, INT, STRUCT_EPOLL_EVENT_P, -1,
 		-1}},
-	{336, "perf_event_open", INT, 5, {STRUCT_PERF_EVENT_ATTR_P, PID_T, INT,
-		INT, UNSIGNED_LONG, -1}},
-	{337, "recvmmsg", INT, 5, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
-		UNSIGNED_INT, STRUCT_TIMESPEC_P, -1}},
-	{338, "fanotify_init", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{339, "fanotify_mark", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{340, "prlimit64", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{341, "name_to_handle_at", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{342, "open_by_handle_at", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{343, "clock_adjtime", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{344, "syncfs", INT, 1, {INT, -1, -1, -1, -1, -1}},
-	{345, "sendmmsg", INT, 4, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
+	{"tgkill", 234, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"utimes", 235, INT, 2, {CHAR_P, STRUCT_TIMEVAL, -1, -1, -1, -1}},
+	{"vserver", 236, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"mbind", 237, INT, 6, {VOID_P, UNSIGNED_LONG, INT, UNSIGNED_LONG_P,
+		UNSIGNED_LONG, UNSIGNED}},
+	{"set_mempolicy", 238, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"get_mempolicy", 239, INT, 5, {INT_P, UNSIGNED_LONG_P, UNSIGNED_LONG,
+		UNSIGNED_LONG, UNSIGNED_LONG, -1}},
+	{"mq_open", 240, MQD_T, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"mq_unlink", 241, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"mq_timedsend", 242, INT, 5, {MQD_T, CHAR_P, SIZE_T,
+		UNSIGNED, STRUCT_TIMESPEC_P, -1}},
+	{"mq_timedreceive", 243, SSIZE_T, 5, {MQD_T, CHAR_P, SIZE_T,
+		UNSIGNED_P, STRUCT_TIMESPEC_P, -1}},
+	{"mq_notify", 244, INT, 2, {MQD_T, STRUCT_SIGEVENT_P, -1, -1, -1, -1}},
+	{"mq_getsetattr", 245, INT, 3, {MQD_T, STRUCT_MQ_ATTR_P,
+		STRUCT_MQ_ATTR_P, -1, -1, -1}},
+	{"kexec_load", 246, LONG, 4, {UNSIGNED_LONG, UNSIGNED_LONG,
+		STRUCT_KEXEC_SEGMENT_P, UNSIGNED_LONG, -1, -1}},
+	{"waitid", 247, INT, 4, {IDTYPE_T, ID_T, SIGINFO_T_P, INT, -1, -1}},
+	{"add_key", 248, KEY_SERIAL_T, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T,
+		KEY_SERIAL_T, -1}},
+	{"request_key", 249, KEY_SERIAL_T, 4, {CHAR_P, CHAR_P, CHAR_P,
+		KEY_SERIAL_T, -1, -1}},
+	{"keyctl", 250, LONG, 2, {INT, VARARGS, -1, -1, -1, -1}},
+	{"ioprio_set", 251, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"ioprio_get", 252, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"inotify_init", 253, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"inotify_add_watch", 254, INT, 3, {INT, CHAR_P, UINT32_T, -1, -1, -1}},
+	{"inotify_rm_watch", 255, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"migrate_pages", 256, LONG, 4, {INT, UNSIGNED_LONG, UNSIGNED_LONG_P,
+		UNSIGNED_LONG_P, -1, -1}},
+	{"openat", 257, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"mkdirat", 258, INT, 3, {INT, CHAR_P, MODE_T, -1, -1, -1}},
+	{"mknodat", 259, INT, 4, {INT, CHAR_P, MODE_T, DEV_T, -1, -1}},
+	{"fchownat", 260, INT, 5, {INT, CHAR_P, UID_T, GID_T, INT, -1}},
+	{"futimesat", 261, INT, 3, {INT, CHAR_P, STRUCT_TIMEVAL, -1, -1, -1}},
+	{"newfstatat", 262, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"unlinkat", 263, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"renameat", 264, INT, 4, {INT, CHAR_P, INT, CHAR_P, -1, -1}},
+	{"linkat", 265, INT, 5, {INT, CHAR_P, INT, CHAR_P, INT, -1}},
+	{"symlinkat", 266, INT, 3, {CHAR_P, INT, CHAR_P, -1, -1, -1}},
+	{"readlinkat", 267, INT, 4, {INT, CHAR_P, CHAR_P, SIZE_T, -1, -1}},
+	{"fchmodat", 268, INT, 4, {INT, CHAR_P, MODE_T, INT, -1, -1}},
+	{"faccessat", 269, INT, 4, {INT, CHAR_P, INT, INT, -1, -1}},
+	{"pselect6", 270, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"ppoll", 271, INT, 4, {STRUCT_POLLFD_P, NFDS_T, STRUCT_TIMESPEC_P,
+		SIGSET_T_P, -1, -1}},
+	{"unshare", 272, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"set_robust_list", 273, LONG, 2, {STRUCT_ROBUST_LIST_HEAD_P,
+		SIZE_T, -1, -1, -1, -1}},
+	{"get_robust_list", 274, LONG, 3, {INT, STRUCT_ROBUST_LIST_HEAD_PP,
+		SIZE_T_P, -1, -1, -1}},
+	{"splice", 275, SSIZE_T, 6, {INT, LOFF_T_P, INT, LOFF_T_P, SIZE_T,
+		UNSIGNED_INT}},
+	{"tee", 276, SSIZE_T, 4, {INT, INT, SIZE_T, UNSIGNED_INT, -1, -1}},
+	{"sync_file_range", 277, INT, 4, {INT, OFF64_T, OFF64_T, UNSIGNED_INT,
+		-1, -1}},
+	{"vmsplice", 278, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, UNSIGNED_LONG,
 		UNSIGNED_INT, -1, -1}},
-	{346, "setns", INT, 2, {INT, INT, -1, -1, -1, -1}},
-	{347, "process_vm_readv", SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
+	{"move_pages", 279, LONG, 6, {INT, UNSIGNED_LONG, VOID_PP, INT_P,
+		INT_P, INT}},
+	{"utimensat", 280, INT, 4, {INT, CHAR_P, STRUCT_TIMESPEC, INT, -1, -1}},
+	{"epoll_pwait", 281, INT, 5, {INT, STRUCT_EPOLL_EVENT_P, INT, INT,
+		SIGSET_T_P, -1}},
+	{"signalfd", 282, INT, 3, {INT, SIGSET_T_P, INT, -1, -1, -1}},
+	{"timerfd_create", 283, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"eventfd", 284, INT, 2, {UNSIGNED_INT, INT, -1, -1, -1, -1}},
+	{"fallocate", 285, INT, 4, {INT, INT, OFF_T, OFF_T, -1, -1}},
+	{"timerfd_settime", 286, INT, 4, {INT, INT, STRUCT_ITIMERSPEC_P,
+		STRUCT_ITIMERSPEC_P, -1, -1}},
+	{"timerfd_gettime", 287, INT, 2, {INT, STRUCT_ITIMERSPEC_P, -1, -1,
+		-1, -1}},
+	{"accept4", 288, INT, 4, {INT, STRUCT_SOCKADDR_P, SOCKLEN_T_P, INT,
+		-1, -1}},
+	{"signalfd4", 289, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"eventfd2", 290, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"epoll_create1", 291, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"dup3", 292, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"pipe2", 293, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"inotify_init1", 294, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"preadv", 295, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
+	{"pwritev", 296, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
+	{"rt_tgsigqueueinfo", 297, INT, 4, {PID_T, PID_T, INT, SIGINFO_T_P,
+		-1, -1}},
+	{"perf_event_open", 298, INT, 5, {STRUCT_PERF_EVENT_ATTR_P, PID_T,
+		INT, INT, UNSIGNED_LONG, -1}},
+	{"recvmmsg", 299, INT, 5, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
+		UNSIGNED_INT, STRUCT_TIMESPEC_P, -1}},
+	{"fanotify_init", 300, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"fanotify_mark", 301, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"prlimit64", 302, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"name_to_handle_at", 303, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"open_by_handle_at", 304, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"clock_adjtime", 305, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"syncfs", 306, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sendmmsg", 307, INT, 4, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
+		UNSIGNED_INT, -1, -1}},
+	{"setns", 308, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"getcpu", 309, INT, 3, {UNSIGNED_P, UNSIGNED_P,
+		STRUCT_GETCPU_CACHE_P, -1, -1, -1}},
+	{"process_vm_readv", 310, SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
 		UNSIGNED_LONG, STRUCT_IOVEC_P, UNSIGNED_LONG, UNSIGNED_LONG}},
-	{348, "process_vm_writev", SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
+	{"process_vm_writev", 311, SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
 		UNSIGNED_LONG, STRUCT_IOVEC_P, UNSIGNED_LONG, UNSIGNED_LONG}},
-	{349, "kcmp", INT, 5, {PID_T, PID_T, INT, UNSIGNED_LONG, UNSIGNED_LONG,
-		-1}},
-	{350, "finit_module", INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
-	{351, "sched_setattr", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{352, "sched_getattr", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{353, "renameat2", -1, 0, {-1, -1, -1, -1, -1, -1}},
-	{354, "seccomp", -1, 0, {-1, -1, -1, -1, -1, -1}}
+	{"kcmp", 312, INT, 5, {PID_T, PID_T, INT, UNSIGNED_LONG,
+		UNSIGNED_LONG, -1}},
+	{"finit_module", 313, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"sched_setattr", 314, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"sched_getattr", 315, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"renameat2", 316, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"seccomp", 317, -1, 0, {-1, -1, -1, -1, -1, -1}}
 };
 
+static syscall_t const syscalls_32[] = {
+	{"restart_syscall", 0, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"exit", 1, VOID, 1, {INT, -1, -1, -1, -1, -1}},
+	{"fork", 2, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"read", 3, SSIZE_T, 3, {INT, VOID_P, SIZE_T, -1, -1, -1}},
+	{"write", 4, SSIZE_T, 3, {INT, VOID_P, SIZE_T, -1, -1, -1}},
+	{"open", 5, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"close", 6, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"waitpid", 7, PID_T, 3, {PID_T, INT_P, INT, -1, -1, -1}},
+	{"creat", 8, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"link", 9, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"unlink", 10, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"execve", 11, INT, 3, {CHAR_P, CHAR_P, CHAR_P, -1, -1, -1}},
+	{"chdir", 12, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"time", 13, TIME_T, 1, {TIME_T_P, -1, -1, -1, -1, -1}},
+	{"mknod", 14, INT, 3, {CHAR_P, MODE_T, DEV_T, -1, -1, -1}},
+	{"chmod", 15, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"lchown", 16, INT, 3, {CHAR_P, UID_T, GID_T, -1, -1, -1}},
+	{"break", 17, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"oldstat", 18, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"lseek", 19, OFF_T, 3, {INT, OFF_T, INT, -1, -1, -1}},
+	{"getpid", 20, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"mount", 21, INT, 5, {CHAR_P, CHAR_P, CHAR_P, UNSIGNED_LONG, VOID_P,
+		-1}},
+	{"umount", 22, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"setuid", 23, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"getuid", 24, UID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"stime", 25, INT, 1, {TIME_T_P, -1, -1, -1, -1, -1}},
+	{"ptrace", 26, LONG, 4, {ENUM___PTRACE_REQUEST, PID_T, VOID_P, VOID_P,
+		-1, -1}},
+	{"alarm", 27, UNSIGNED_INT, 1, {UNSIGNED_INT, -1, -1, -1, -1, -1}},
+	{"oldfstat", 28, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"pause", 29, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"utime", 30, INT, 2, {CHAR_P, STRUCT_UTIMBUF_P, -1, -1, -1, -1}},
+	{"stty", 31, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"gtty", 32, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"access", 33, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"nice", 34, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"ftime", 35, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"sync", 36, VOID, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"kill", 37, INT, 2, {PID_T, INT, -1, -1, -1, -1}},
+	{"rename", 38, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"mkdir", 39, INT, 2, {CHAR_P, MODE_T, -1, -1, -1, -1}},
+	{"rmdir", 40, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"dup", 41, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"pipe", 42, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"times", 43, CLOCK_T, 1, {STRUCT_TMS_P, -1, -1, -1, -1, -1}},
+	{"prof", 44, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"brk", 45, INT, 1, {VOID_P, -1, -1, -1, -1, -1}},
+	{"setgid", 46, INT, 1, {GID_T, -1, -1, -1, -1, -1}},
+	{"getgid", 47, GID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"signal", 48, SIGHANDLER_T, 2, {INT, SIGHANDLER_T, -1, -1, -1, -1}},
+	{"geteuid", 49, UID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"getegid", 50, GID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"acct", 51, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"umount2", 52, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"lock", 53, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"ioctl", 54, INT, 3, {INT, INT, VARARGS, -1, -1, -1}},
+	{"fcntl", 55, INT, 3, {INT, INT, VARARGS, -1, -1, -1}},
+	{"mpx", 56, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setpgid", 57, INT, 2, {PID_T, PID_T, -1, -1, -1, -1}},
+	{"ulimit", 58, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"oldolduname", 59, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"umask", 60, MODE_T, 1, {MODE_T, -1, -1, -1, -1, -1}},
+	{"chroot", 61, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"ustat", 62, INT, 2, {DEV_T, STRUCT_USTAT_P, -1, -1, -1, -1}},
+	{"dup2", 63, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"getppid", 64, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"getpgrp", 65, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"setsid", 66, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"sigaction", 67, INT, 3, {INT, STRUCT_SIGACTION_P,
+		STRUCT_SIGACTION_P, -1, -1, -1}},
+	{"sgetmask", 68, LONG, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"ssetmask", 69, LONG, 1, {LONG, -1, -1, -1, -1, -1}},
+	{"setreuid", 70, INT, 2, {UID_T, UID_T, -1, -1, -1, -1}},
+	{"setregid", 71, INT, 2, {GID_T, GID_T, -1, -1, -1, -1}},
+	{"sigsuspend", 72, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"sigpending", 73, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"sethostname", 74, INT, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"setrlimit", 75, INT, 2, {INT, STRUCT_RLIMIT_P, -1, -1, -1, -1}},
+	{"getrlimit", 76, INT, 2, {INT, STRUCT_RLIMIT_P, -1, -1, -1, -1}},
+	{"getrusage", 77, INT, 2, {INT, STRUCT_RUSAGE_P, -1, -1, -1, -1}},
+	{"gettimeofday", 78, INT, 2, {STRUCT_TIMEVAL_P, STRUCT_TIMEZONE_P, -1,
+		-1, -1, -1}},
+	{"settimeofday", 79, INT, 2, {STRUCT_TIMEVAL_P, STRUCT_TIMEZONE_P, -1,
+		-1, -1, -1}},
+	{"getgroups", 80, INT, 2, {INT, GID_T, -1, -1, -1, -1}},
+	{"setgroups", 81, INT, 2, {SIZE_T, GID_T_P, -1, -1, -1, -1}},
+	{"select", 82, INT, 5, {INT, FD_SET_P, FD_SET_P, FD_SET_P,
+		STRUCT_TIMEVAL_P, -1}},
+	{"symlink", 83, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"oldlstat", 84, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"readlink", 85, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"uselib", 86, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"swapon", 87, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"reboot", 88, INT, 4, {INT, INT, INT, VOID_P, -1, -1}},
+	{"readdir", 89, INT, 3, {UNSIGNED_INT, STRUCT_OLD_LINUX_DIRENT_P,
+		UNSIGNED_INT, -1, -1, -1}},
+	{"mmap", 90, VOID_P, 6, {VOID_P, SIZE_T, INT, INT, INT, OFF_T}},
+	{"munmap", 91, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"truncate", 92, INT, 2, {CHAR_P, OFF_T, -1, -1, -1, -1}},
+	{"ftruncate", 93, INT, 2, {INT, OFF_T, -1, -1, -1, -1}},
+	{"fchmod", 94, INT, 2, {INT, MODE_T, -1, -1, -1, -1}},
+	{"fchown", 95, INT, 3, {INT, UID_T, GID_T, -1, -1, -1}},
+	{"getpriority", 96, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"setpriority", 97, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"profil", 98, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"statfs", 99, INT, 2, {CHAR_P, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"fstatfs", 100, INT, 2, {INT, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"ioperm", 101, INT, 3, {UNSIGNED_LONG, UNSIGNED_LONG, INT, -1, -1,
+		-1}},
+	{"socketcall", 102, INT, 2, {INT, UNSIGNED_LONG_P, -1, -1, -1, -1}},
+	{"syslog", 103, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"setitimer", 104, INT, 3, {INT, STRUCT_ITIMERVAL_P,
+		STRUCT_ITIMERVAL_P, -1, -1, -1}},
+	{"getitimer", 105, INT, 2, {INT, STRUCT_ITIMERVAL_P, -1, -1, -1, -1}},
+	{"stat", 106, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"lstat", 107, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"fstat", 108, INT, 2, {INT, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"olduname", 109, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"iopl", 110, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"vhangup", 111, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"idle", 112, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"vm86old", 113, INT, 1, {STRUCT_VM86_STRUCT_P, -1, -1, -1, -1, -1}},
+	{"wait4", 114, PID_T, 4, {PID_T, INT_P, INT, STRUCT_RUSAGE_P, -1, -1}},
+	{"swapoff", 115, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"sysinfo", 116, INT, 1, {STRUCT_SYSINFO_P, -1, -1, -1, -1, -1}},
+	{"ipc", 117, INT, 6, {UNSIGNED_INT, INT, INT, INT, VOID_P, LONG}},
+	{"fsync", 118, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sigreturn", 119, INT, 1, {UNSIGNED_LONG, -1, -1, -1, -1, -1}},
+	{"clone", 120, INT, 5, {INT, VOID_P, INT, VOID_P, VARARGS, -1}},
+	{"setdomainname", 121, INT, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"uname", 122, INT, 1, {STRUCT_UTSNAME_P, -1, -1, -1, -1, -1}},
+	{"modify_ldt", 123, INT, 3, {INT, VOID_P, UNSIGNED_LONG, -1, -1, -1}},
+	{"adjtimex", 124, INT, 1, {STRUCT_TIMEX_P, -1, -1, -1, -1, -1}},
+	{"mprotect", 125, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"sigprocmask", 126, INT, 3, {INT, SIGSET_T_P, SIGSET_T_P, -1, -1, -1}},
+	{"create_module", 127, CADDR_T, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"init_module", 128, INT, 3, {VOID_P, UNSIGNED_LONG, CHAR_P, -1, -1,
+		-1}},
+	{"delete_module", 129, INT, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"get_kernel_syms", 130, INT, 1, {STRUCT_KERNEL_SYM_P, -1, -1, -1, -1,
+		-1}},
+	{"quotactl", 131, INT, 4, {INT, CHAR_P, INT, CADDR_T, -1, -1}},
+	{"getpgid", 132, PID_T, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"fchdir", 133, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"bdflush", 134, INT, 2, {INT, LONG_P, -1, -1, -1, -1}},
+	{"sysfs", 135, INT, 2, {INT, CHAR_P, -1, -1, -1, -1}},
+	{"personality", 136, INT, 1, {UNSIGNED_LONG, -1, -1, -1, -1, -1}},
+	{"afs_syscall", 137, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setfsuid", 138, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"setfsgid", 139, INT, 1, {UID_T, -1, -1, -1, -1, -1}},
+	{"_llseek", 140, INT, 5, {UNSIGNED_INT, UNSIGNED_LONG, UNSIGNED_LONG,
+		LOFF_T_P, UNSIGNED_INT, -1}},
+	{"getdents", 141, INT, 3, {UNSIGNED_INT, STRUCT_LINUX_DIRENT_P,
+		UNSIGNED_INT, -1, -1, -1}},
+	{"_newselect", 142, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"flock", 143, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"msync", 144, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"readv", 145, SSIZE_T, 3, {INT, STRUCT_IOVEC_P, INT, -1, -1, -1}},
+	{"writev", 146, SSIZE_T, 3, {INT, STRUCT_IOVEC_P, INT, -1, -1, -1}},
+	{"getsid", 147, PID_T, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"fdatasync", 148, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"_sysctl", 149, INT, 1, {STRUCT___SYSCTL_ARGS_P, -1, -1, -1, -1, -1}},
+	{"mlock", 150, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"munlock", 151, INT, 2, {VOID_P, SIZE_T, -1, -1, -1, -1}},
+	{"mlockall", 152, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"munlockall", 153, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"sched_setparam", 154, INT, 2, {PID_T, STRUCT_SCHED_PARAM_P, -1, -1,
+		-1, -1}},
+	{"sched_getparam", 155, INT, 2, {PID_T, STRUCT_SCHED_PARAM_P, -1, -1,
+		-1, -1}},
+	{"sched_setscheduler", 156, INT, 3, {PID_T, INT, STRUCT_SCHED_PARAM_P,
+		-1, -1, -1}},
+	{"sched_getscheduler", 157, INT, 1, {PID_T, -1, -1, -1, -1, -1}},
+	{"sched_yield", 158, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"sched_get_priority_max", 159, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sched_get_priority_min", 160, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sched_rr_get_interval", 161, INT, 2, {PID_T, STRUCT_TIMESPEC_P, -1,
+		-1, -1, -1}},
+	{"nanosleep", 162, INT, 2, {STRUCT_TIMESPEC_P, STRUCT_TIMESPEC_P, -1,
+		-1, -1, -1}},
+	{"mremap", 163, VOID_P, 5, {VOID_P, SIZE_T, SIZE_T, INT, VARARGS, -1}},
+	{"setresuid", 164, INT, 3, {UID_T, UID_T, UID_T, -1, -1, -1}},
+	{"getresuid", 165, INT, 3, {UID_T_P, UID_T_P, UID_T_P, -1, -1, -1}},
+	{"vm86", 166, INT, 1, {STRUCT_VM86_STRUCT_P, -1, -1, -1, -1, -1}},
+	{"query_module", 167, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"poll", 168, INT, 3, {STRUCT_POLLFD_P, NFDS_T, INT, -1, -1, -1}},
+	{"nfsservctl", 169, LONG, 3, {INT, STRUCT_NFSCTL_ARG_P,
+		UNION_NFSCTL_RES_P, -1, -1, -1}},
+	{"setresgid", 170, INT, 3, {GID_T, GID_T, GID_T, -1, -1, -1}},
+	{"getresgid", 171, INT, 3, {GID_T_P, GID_T_P, GID_T_P, -1, -1, -1}},
+	{"prctl", 172, INT, 5, {INT, UNSIGNED_LONG, UNSIGNED_LONG,
+		UNSIGNED_LONG, UNSIGNED_LONG, -1}},
+	{"rt_sigreturn", 173, INT, 1, {UNSIGNED_LONG, -1, -1, -1, -1, -1}},
+	{"rt_sigaction", 174, INT, 3, {INT, STRUCT_SIGACTION_P,
+		STRUCT_SIGACTION_P, -1, -1, -1}},
+	{"rt_sigprocmask", 175, INT, 3, {INT, SIGSET_T_P, SIGSET_T_P, -1, -1,
+		-1}},
+	{"rt_sigpending", 176, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"rt_sigtimedwait", 177, INT, 3, {SIGSET_T_P, SIGINFO_T_P,
+		STRUCT_TIMESPEC_P, -1, -1, -1}},
+	{"rt_sigqueueinfo", 178, INT, 3, {PID_T, INT, SIGINFO_T_P, -1, -1, -1}},
+	{"rt_sigsuspend", 179, INT, 1, {SIGSET_T_P, -1, -1, -1, -1, -1}},
+	{"pread64", 180, SSIZE_T, 4, {INT, VOID_P, SIZE_T, OFF_T, -1, -1}},
+	{"pwrite64", 181, SSIZE_T, 4, {INT, VOID_P, SIZE_T, OFF_T, -1, -1}},
+	{"chown", 182, INT, 3, {CHAR_P, UID_T, GID_T, -1, -1, -1}},
+	{"getcwd", 183, CHAR_P, 2, {CHAR_P, SIZE_T, -1, -1, -1, -1}},
+	{"capget", 184, INT, 2, {CAP_USER_HEADER_T, CAP_USER_DATA_T, -1, -1,
+		-1, -1}},
+	{"capset", 185, INT, 2, {CAP_USER_HEADER_T, CAP_USER_DATA_T, -1, -1,
+		-1, -1}},
+	{"sigaltstack", 186, INT, 2, {STACK_T_P, STACK_T_P, -1, -1, -1, -1}},
+	{"sendfile", 187, SSIZE_T, 4, {INT, INT, OFF_T_P, SIZE_T, -1, -1}},
+	{"getpmsg", 188, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"putpmsg", 189, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"vfork", 190, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"ugetrlimit", 191, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"mmap2", 192, VOID_P, 6, {VOID_P, SIZE_T, INT, INT, INT, OFF_T}},
+	{"truncate64", 193, INT, 2, {CHAR_P, OFF_T, -1, -1, -1, -1}},
+	{"ftruncate64", 194, INT, 2, {INT, OFF_T, -1, -1, -1, -1}},
+	{"stat64", 195, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"lstat64", 196, INT, 2, {CHAR_P, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"fstat64", 197, INT, 2, {INT, STRUCT_STAT_P, -1, -1, -1, -1}},
+	{"lchown32", 198, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getuid32", 199, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getgid32", 200, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"geteuid32", 201, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getegid32", 202, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setreuid32", 203, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setregid32", 204, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getgroups32", 205, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setgroups32", 206, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"fchown32", 207, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setresuid32", 208, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getresuid32", 209, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setresgid32", 210, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"getresgid32", 211, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"chown32", 212, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setuid32", 213, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setgid32", 214, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setfsuid32", 215, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"setfsgid32", 216, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"pivot_root", 217, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"mincore", 218, INT, 3, {VOID_P, SIZE_T, UNSIGNED_CHAR_P, -1, -1, -1}},
+	{"madvise", 219, INT, 3, {VOID_P, SIZE_T, INT, -1, -1, -1}},
+	{"getdents64", 220, INT, 3, {UNSIGNED_INT, STRUCT_LINUX_DIRENT_P,
+		UNSIGNED_INT, -1, -1, -1}},
+	{"fcntl64", 221, INT, 3, {INT, INT, VARARGS, -1, -1, -1}},
+	{"gettid", 224, PID_T, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"readahead", 225, SSIZE_T, 3, {INT, OFF64_T, SIZE_T, -1, -1, -1}},
+	{"setxattr", 226, INT, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"lsetxattr", 227, INT, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"fsetxattr", 228, INT, 5, {INT, CHAR_P, VOID_P, SIZE_T, INT, -1}},
+	{"getxattr", 229, SSIZE_T, 4, {CHAR_P, CHAR_P, VOID_P, SIZE_T, -1, -1}},
+	{"lgetxattr", 230, SSIZE_T, 4, {CHAR_P, CHAR_P, VOID_P, SIZE_T, -1,
+		-1}},
+	{"fgetxattr", 231, SSIZE_T, 4, {INT, CHAR_P, VOID_P, SIZE_T, -1, -1}},
+	{"listxattr", 232, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"llistxattr", 233, SSIZE_T, 3, {CHAR_P, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"flistxattr", 234, SSIZE_T, 3, {INT, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"removexattr", 235, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"lremovexattr", 236, INT, 2, {CHAR_P, CHAR_P, -1, -1, -1, -1}},
+	{"fremovexattr", 237, INT, 2, {INT, CHAR_P, -1, -1, -1, -1}},
+	{"tkill", 238, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"sendfile64", 239, SSIZE_T, 4, {INT, INT, OFF_T_P, SIZE_T, -1, -1}},
+	{"futex", 240, INT, 6, {INT_P, INT, INT, STRUCT_TIMESPEC_P, INT_P,
+		INT}},
+	{"sched_setaffinity", 241, INT, 3, {PID_T, SIZE_T, CPU_SET_T_P, -1, -1,
+		-1}},
+	{"sched_getaffinity", 242, INT, 3, {PID_T, SIZE_T, CPU_SET_T_P, -1, -1,
+		-1}},
+	{"set_thread_area", 243, INT, 1, {STRUCT_USER_DESC_P, -1, -1, -1, -1,
+		-1}},
+	{"get_thread_area", 244, INT, 1, {STRUCT_USER_DESC_P, -1, -1, -1, -1,
+		-1}},
+	{"io_setup", 245, INT, 2, {UNSIGNED, AIO_CONTEXT_T_P, -1, -1, -1, -1}},
+	{"io_destroy", 246, INT, 1, {AIO_CONTEXT_T, -1, -1, -1, -1, -1}},
+	{"io_getevents", 247, INT, 5, {AIO_CONTEXT_T, LONG, LONG,
+		STRUCT_IO_EVENT_P, STRUCT_TIMESPEC_P, -1}},
+	{"io_submit", 248, INT, 3, {AIO_CONTEXT_T, LONG, STRUCT_IOCB_PP, -1,
+		-1, -1}},
+	{"io_cancel", 249, INT, 3, {AIO_CONTEXT_T, STRUCT_IOCB_P,
+		STRUCT_IO_EVENT_P, -1, -1, -1}},
+	{"fadvise64", 250, INT, 4, {INT, OFF_T, OFF_T, INT, -1, -1}},
+	{"exit_group", 252, VOID, 1, {INT, -1, -1, -1, -1, -1}},
+	{"lookup_dcookie", 253, INT, 3, {U64, CHAR_P, SIZE_T, -1, -1, -1}},
+	{"epoll_create", 254, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"epoll_ctl", 255, INT, 4, {INT, INT, INT, STRUCT_EPOLL_EVENT_P, -1,
+		-1}},
+	{"epoll_wait", 256, INT, 4, {INT, STRUCT_EPOLL_EVENT_P, INT, INT, -1,
+		-1}},
+	{"remap_file_pages", 257, INT, 5, {VOID_P, SIZE_T, INT, SSIZE_T, INT,
+		-1}},
+	{"set_tid_address", 258, LONG, 1, {INT_P, -1, -1, -1, -1, -1}},
+	{"timer_create", 259, INT, 3, {CLOCKID_T, STRUCT_SIGEVENT_P, TIMER_T_P,
+		-1, -1, -1}},
+	{"timer_settime", 260, INT, 4, {TIMER_T, INT, STRUCT_ITIMERSPEC_P,
+		STRUCT_ITIMERSPEC_P, -1, -1}},
+	{"timer_gettime", 261, INT, 2, {TIMER_T, STRUCT_ITIMERSPEC_P, -1, -1,
+		-1, -1}},
+	{"timer_getoverrun", 262, INT, 1, {TIMER_T, -1, -1, -1, -1, -1}},
+	{"timer_delete", 263, INT, 1, {TIMER_T, -1, -1, -1, -1, -1}},
+	{"clock_settime", 264, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_gettime", 265, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_getres", 266, INT, 2, {CLOCKID_T, STRUCT_TIMESPEC_P, -1, -1,
+		-1, -1}},
+	{"clock_nanosleep", 267, INT, 4, {CLOCKID_T, INT, STRUCT_TIMESPEC_P,
+		STRUCT_TIMESPEC_P, -1, -1}},
+	{"statfs64", 268, INT, 2, {CHAR_P, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"fstatfs64", 269, INT, 2, {INT, STRUCT_STATFS_P, -1, -1, -1, -1}},
+	{"tgkill", 270, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"utimes", 271, INT, 2, {CHAR_P, STRUCT_TIMEVAL, -1, -1, -1, -1}},
+	{"fadvise64_64", 272, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"vserver", 273, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"mbind", 274, INT, 6, {VOID_P, UNSIGNED_LONG, INT, UNSIGNED_LONG_P,
+		UNSIGNED_LONG, UNSIGNED}},
+	{"get_mempolicy", 275, INT, 5, {INT_P, UNSIGNED_LONG_P, UNSIGNED_LONG,
+		UNSIGNED_LONG, UNSIGNED_LONG, -1}},
+	{"set_mempolicy", 276, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"mq_open", 277, MQD_T, 2, {CHAR_P, INT, -1, -1, -1, -1}},
+	{"mq_unlink", 278, INT, 1, {CHAR_P, -1, -1, -1, -1, -1}},
+	{"mq_timedsend", 279, INT, 5, {MQD_T, CHAR_P, SIZE_T,
+		UNSIGNED, STRUCT_TIMESPEC_P, -1}},
+	{"mq_timedreceive", 280, SSIZE_T, 5, {MQD_T, CHAR_P, SIZE_T,
+		UNSIGNED_P, STRUCT_TIMESPEC_P, -1}},
+	{"mq_notify", 281, INT, 2, {MQD_T, STRUCT_SIGEVENT_P, -1, -1, -1, -1}},
+	{"mq_getsetattr", 282, INT, 3, {MQD_T, STRUCT_MQ_ATTR_P,
+		STRUCT_MQ_ATTR_P, -1, -1, -1}},
+	{"kexec_load", 283, LONG, 4, {UNSIGNED_LONG, UNSIGNED_LONG,
+		STRUCT_KEXEC_SEGMENT_P, UNSIGNED_LONG, -1, -1}},
+	{"waitid", 284, INT, 4, {IDTYPE_T, ID_T, SIGINFO_T_P, INT, -1, -1}},
+	{"add_key", 286, KEY_SERIAL_T, 5, {CHAR_P, CHAR_P, VOID_P, SIZE_T,
+		KEY_SERIAL_T, -1}},
+	{"request_key", 287, KEY_SERIAL_T, 4, {CHAR_P, CHAR_P, CHAR_P,
+		KEY_SERIAL_T, -1, -1}},
+	{"keyctl", 288, LONG, 2, {INT, VARARGS, -1, -1, -1, -1}},
+	{"ioprio_set", 289, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"ioprio_get", 290, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"inotify_init", 291, INT, 1, {VOID, -1, -1, -1, -1, -1}},
+	{"inotify_add_watch", 292, INT, 3, {INT, CHAR_P, UINT32_T, -1, -1, -1}},
+	{"inotify_rm_watch", 293, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"migrate_pages", 294, LONG, 4, {INT, UNSIGNED_LONG, UNSIGNED_LONG_P,
+		UNSIGNED_LONG_P, -1, -1}},
+	{"openat", 295, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"mkdirat", 296, INT, 3, {INT, CHAR_P, MODE_T, -1, -1, -1}},
+	{"mknodat", 297, INT, 4, {INT, CHAR_P, MODE_T, DEV_T, -1, -1}},
+	{"fchownat", 298, INT, 5, {INT, CHAR_P, UID_T, GID_T, INT, -1}},
+	{"futimesat", 299, INT, 3, {INT, CHAR_P, STRUCT_TIMEVAL, -1, -1, -1}},
+	{"fstatat64", 300, INT, 4, {INT, CHAR_P, STRUCT_STAT_P, INT, -1, -1}},
+	{"unlinkat", 301, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"renameat", 302, INT, 4, {INT, CHAR_P, INT, CHAR_P, -1, -1}},
+	{"linkat", 303, INT, 5, {INT, CHAR_P, INT, CHAR_P, INT, -1}},
+	{"symlinkat", 304, INT, 3, {CHAR_P, INT, CHAR_P, -1, -1, -1}},
+	{"readlinkat", 305, INT, 4, {INT, CHAR_P, CHAR_P, SIZE_T, -1, -1}},
+	{"fchmodat", 306, INT, 4, {INT, CHAR_P, MODE_T, INT, -1, -1}},
+	{"faccessat", 307, INT, 4, {INT, CHAR_P, INT, INT, -1, -1}},
+	{"pselect6", 308, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"ppoll", 309, INT, 4, {STRUCT_POLLFD_P, NFDS_T, STRUCT_TIMESPEC_P,
+		SIGSET_T_P, -1, -1}},
+	{"unshare", 310, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"set_robust_list", 311, LONG, 2, {STRUCT_ROBUST_LIST_HEAD_P, SIZE_T,
+		-1, -1, -1, -1}},
+	{"get_robust_list", 312, LONG, 3, {INT, STRUCT_ROBUST_LIST_HEAD_PP,
+		SIZE_T_P, -1, -1, -1}},
+	{"splice", 313, SSIZE_T, 6, {INT, LOFF_T_P, INT, LOFF_T_P, SIZE_T,
+		UNSIGNED_INT}},
+	{"sync_file_range", 314, INT, 4, {INT, OFF64_T, OFF64_T, UNSIGNED_INT,
+		-1, -1}},
+	{"tee", 315, SSIZE_T, 4, {INT, INT, SIZE_T, UNSIGNED_INT, -1, -1}},
+	{"vmsplice", 316, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, UNSIGNED_LONG,
+		UNSIGNED_INT, -1, -1}},
+	{"move_pages", 317, LONG, 6, {INT, UNSIGNED_LONG, VOID_PP, INT_P,
+		INT_P, INT}},
+	{"getcpu", 318, INT, 3, {UNSIGNED_P, UNSIGNED_P,
+		STRUCT_GETCPU_CACHE_P, -1, -1, -1}},
+	{"epoll_pwait", 319, INT, 5, {INT, STRUCT_EPOLL_EVENT_P, INT, INT,
+		SIGSET_T_P, -1}},
+	{"utimensat", 320, INT, 4, {INT, CHAR_P, STRUCT_TIMESPEC, INT, -1, -1}},
+	{"signalfd", 321, INT, 3, {INT, SIGSET_T_P, INT, -1, -1, -1}},
+	{"timerfd_create", 322, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"eventfd", 323, INT, 2, {UNSIGNED_INT, INT, -1, -1, -1, -1}},
+	{"fallocate", 324, INT, 4, {INT, INT, OFF_T, OFF_T, -1, -1}},
+	{"timerfd_settime", 325, INT, 4, {INT, INT, STRUCT_ITIMERSPEC_P,
+		STRUCT_ITIMERSPEC_P, -1, -1}},
+	{"timerfd_gettime", 326, INT, 2, {INT, STRUCT_ITIMERSPEC_P, -1, -1, -1,
+		-1}},
+	{"signalfd4", 327, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"eventfd2", 328, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"epoll_create1", 329, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"dup3", 330, INT, 3, {INT, INT, INT, -1, -1, -1}},
+	{"pipe2", 331, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"inotify_init1", 332, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"preadv", 333, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
+	{"pwritev", 334, SSIZE_T, 4, {INT, STRUCT_IOVEC_P, INT, OFF_T, -1, -1}},
+	{"rt_tgsigqueueinfo", 335, INT, 4, {PID_T, PID_T, INT, SIGINFO_T_P, -1,
+		-1}},
+	{"perf_event_open", 336, INT, 5, {STRUCT_PERF_EVENT_ATTR_P, PID_T, INT,
+		INT, UNSIGNED_LONG, -1}},
+	{"recvmmsg", 337, INT, 5, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
+		UNSIGNED_INT, STRUCT_TIMESPEC_P, -1}},
+	{"fanotify_init", 338, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"fanotify_mark", 339, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"prlimit64", 340, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"name_to_handle_at", 341, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"open_by_handle_at", 342, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"clock_adjtime", 343, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"syncfs", 344, INT, 1, {INT, -1, -1, -1, -1, -1}},
+	{"sendmmsg", 345, INT, 4, {INT, STRUCT_MMSGHDR_P, UNSIGNED_INT,
+		UNSIGNED_INT, -1, -1}},
+	{"setns", 346, INT, 2, {INT, INT, -1, -1, -1, -1}},
+	{"process_vm_readv", 347, SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
+		UNSIGNED_LONG, STRUCT_IOVEC_P, UNSIGNED_LONG, UNSIGNED_LONG}},
+	{"process_vm_writev", 348, SSIZE_T, 6, {PID_T, STRUCT_IOVEC_P,
+		UNSIGNED_LONG, STRUCT_IOVEC_P, UNSIGNED_LONG, UNSIGNED_LONG}},
+	{"kcmp", 349, INT, 5, {PID_T, PID_T, INT, UNSIGNED_LONG, UNSIGNED_LONG,
+		-1}},
+	{"finit_module", 350, INT, 3, {INT, CHAR_P, INT, -1, -1, -1}},
+	{"sched_setattr", 351, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"sched_getattr", 352, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"renameat2", 353, -1, 0, {-1, -1, -1, -1, -1, -1}},
+	{"seccomp", 354, -1, 0, {-1, -1, -1, -1, -1, -1}}
+};
 
 #endif /* !_SYSCALLS_H_ */

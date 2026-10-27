@@ -49,8 +49,7 @@ strace/
 ├── 8_printStrParam.c         # read/write buffer printing with escapes
 │
 ├── 8_printFlagsInt.c         # mmap/open/access flag decoding
-├── 8_printStatParam.c        # struct stat decoding for fstat
-└── syscall.h                 # Local fragment; the full syscalls.h is still required
+└── 8_printStatParam.c        # struct stat decoding for fstat
 ```
 
 The numeric prefix marks the stage a file was introduced for. Later stages sometimes
