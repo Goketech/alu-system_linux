@@ -126,8 +126,7 @@ strace_8: syscalls.h hstrace.h \
 
 .PHONY: all clean_all oclean_all fclean_all re_all
 
-all:
-	strace_0 strace_1 strace_2 strace_3 strace_4 \
+all: strace_0 strace_1 strace_2 strace_3 strace_4 \
 	strace_5 strace_6 strace_7 strace_8
 
 clean_all:

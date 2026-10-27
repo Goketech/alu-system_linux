@@ -28,7 +28,7 @@ strings, flags, buffers, and `struct stat`.
 strace/
 ├── Makefile                  # One target per stage: strace_0 ... strace_8
 ├── hstrace.h                 # Shared declarations for the helper modules
-├── syscalls.h                # Syscall table supplied with the assignment
+├── syscalls.h                # x86-64 table: type_t, syscall_t, syscalls_64[]
 │
 ├── 0_strace.c                # Stage 0 entry point: syscall number
 ├── 1_strace.c                # Stage 1 entry point: syscall name

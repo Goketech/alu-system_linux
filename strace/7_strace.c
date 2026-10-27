@@ -73,6 +73,12 @@ int lateParamRead(size_t syscall_n)
 	default:
 		break;
 	}
+
+	return (0);
+}
+
+
+/**
  * printExecveParams - the parameters sent into execve in the parent are not
  *   visible to the child once the memory image is copied into the new
  *   process. This function directly prints them from their values in the

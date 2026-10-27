@@ -69,10 +69,22 @@ int lateParamRead(size_t syscall_n)
 
 	switch (syscall_n)
 	{
-/*
- * arguably stat fstat and lstat could all be subject to late param printing
- * after checking return value, but grading expects only fstat
- *
+	/*
+	 * arguably stat fstat and lstat could all be subject to late param
+	 * printing after checking return value, but grading expects only fstat
+	 */
+	case SYS_fstat:
+	case SYS_read:
+		return (1);
+	default:
+		break;
+	}
+
+	return (0);
+}
+
+
+/**
  * printExecveParams - the parameters sent into execve in the parent are not
  *   visible to the child once the memory image is copied into the new
  *   process. This function directly prints them from their values in the

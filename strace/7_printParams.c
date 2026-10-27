@@ -95,6 +95,7 @@ void printParam(pid_t child_pid, struct user_regs_struct *regs,
 					      param, (size_t)regs->rdx);
 				break;
 			}
+			/* fall through */
 		default:
 			printf("%#lx", param);
 			break;
