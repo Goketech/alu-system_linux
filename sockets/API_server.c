@@ -143,6 +143,9 @@ int API_server(void)
 			HTTP_response(500, NULL, NULL);
 			errorExit("API_server: recv");
 		}
+#if SRC_VERSION <= 7
+		printf("Raw request: \"%s\"\n", recv_buf);
+#endif
 		request = parseRequest(recv_buf);
 		if (request)
 		{
