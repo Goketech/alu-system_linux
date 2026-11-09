@@ -73,8 +73,7 @@ int parseHeaders(char *recv_str, char **message_lines,
 	size_t i, headers_end_i;
 	HTTP_header_t *hdrs_head = NULL, *new_hdr, *hdrs_tail;
 
-	}
-
+	(void)recv_str;
 	headers_end_i = message_line_ct - 2;
 	for (i = 1;  i < headers_end_i; i++)
 	{

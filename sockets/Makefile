@@ -66,7 +66,7 @@ todos.o: todos.c
 todo_api_0: VERSION := 4
 todo_api_0: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 	4-7-valid_fields.o 4-printRequest.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 5. REST API - Queries
@@ -76,7 +76,7 @@ todo_api_0: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 todo_api_1: VERSION := 5
 todo_api_1: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 	4-7-valid_fields.o 5-printRequest.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 6. REST API - Headers
@@ -86,7 +86,7 @@ todo_api_1: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 todo_api_2: VERSION := 6
 todo_api_2: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 	4-7-valid_fields.o 6-printRequest.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 7. REST API - Body parameters
@@ -96,35 +96,35 @@ todo_api_2: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 todo_api_3: VERSION := 7
 todo_api_3: API_server.h $(4_11_SHARED_OBJ) $(4_7_SHARED_OBJ) \
 	4-7-valid_fields.o 7-printRequest.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 8. REST API - Create TODO
 todo_api_4: VERSION := 8
 todo_api_4: API_server.h $(4_11_SHARED_OBJ) $(8_11_SHARED_OBJ) \
 	8-valid_fields.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 9. REST API - Retrieve all TODOs
 todo_api_5: VERSION := 9
 todo_api_5: API_server.h $(4_11_SHARED_OBJ) $(8_11_SHARED_OBJ) \
 	9-10-valid_fields.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 10. REST API - Retrieve a single TODO
 todo_api_6: VERSION := 10
 todo_api_6: API_server.h $(4_11_SHARED_OBJ) $(8_11_SHARED_OBJ) \
 	9-10-valid_fields.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 # task 11. REST API - Delete a TODO
 todo_api_7: VERSION := 11
 todo_api_7: API_server.h $(4_11_SHARED_OBJ) $(8_11_SHARED_OBJ) \
 	11-valid_fields.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(filter %.o,$^) -o $@
 
 
 .PHONY: all clean_all oclean_all fclean_all re_all

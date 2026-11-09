@@ -73,6 +73,12 @@ typedef struct HTTP_request_s
 	HTTP_header_t *headers;
 	char *message_body;
 } HTTP_request_t;
+
+/**
+ * struct todo_s - node in SLL of todo items
+ *
+ * @id: id of todo item
+ * @title: title of todo item
  * @description: description of todo item
  * @next: pointer to next node in SLL, or NULL at tail
  */
