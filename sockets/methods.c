@@ -27,6 +27,11 @@ void methodPOST(HTTP_request_t *request)
 		HTTP_response(500, NULL, NULL);
 		return;
 	}
+	if (!getHeaderByName("Content-Length", request->headers))
+	{
+		HTTP_response(411, NULL, NULL);
+		return;
+	}
 	if (todoValuesFromQuery(request->message_body, &title,
 				&description) != 0)
 		return;

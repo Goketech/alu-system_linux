@@ -121,11 +121,23 @@ int todoValuesFromQuery(char *query, char **title, char **description)
 	kv_pair1 = strtok(query, "&");
 	kv_pair2 = strtok(NULL, "&");
 
+	if (!kv_pair1 || !kv_pair2)
+	{
+		HTTP_response(422, NULL, NULL);
+		return (1);
+	}
+
 	key1 = strtok(kv_pair1, "=");
 	value1 = strtok(NULL, "=");
 
 	key2 = strtok(kv_pair2, "=");
 	value2 = strtok(NULL, "=");
+
+	if (!key1 || !value1 || !key2 || !value2)
+	{
+		HTTP_response(422, NULL, NULL);
+		return (1);
+	}
 
 	if (strncmp("title", key1, strlen("title") + 1) == 0)
 		*title = value1;
